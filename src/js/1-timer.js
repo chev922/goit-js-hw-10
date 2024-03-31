@@ -1,11 +1,13 @@
-import flatpickr from 'flatpickr';
-import 'flatpickr/dist/flatpickr.min.css';
+import flatpickr from "flatpickr";
+import "flatpickr/dist/flatpickr.min.css";
+import iziToast from "izitoast";
+import "izitoast/dist/css/iziToast.min.css";
 
-import iziToast from 'izitoast';
-import 'izitoast/dist/css/iziToast.min.css';
-
-let userSelectedDate;
-let timeInterval;
+let userSelectedDate = null;
+let timerInterval = null;
+const button = document.querySelector("button");
+const calendarElement = document.querySelector("#datetime-picker");
+const spanText = document.querySelectorAll(".value");
 
 const options = {
     enableTime: true,
@@ -13,67 +15,60 @@ const options = {
     defaultDate: new Date(),
     minuteIncrement: 1,
     onClose(selectedDates) {
-        userSelectedDate = selectedDates[0];
-        timeInterval = userSelectedDate - options.defaultDate;
+        const selectedDate = selectedDates[0];
+        userSelectedDate = selectedDate;
 
-        if (timeInterval < 1) {
-            iziToast.error({
-                color: 'red',
-                position: 'topRight',
-                message: `Please choose a date in the future`,
-            });
+        if (selectedDate && selectedDate.getTime() > new Date().getTime()) {
+            button.disabled = false;
         } else {
-            startBtn.disabled = false;
-            inputTime.disabled = true;
+            button.disabled = true;
+            calendarElement.disabled = false;
+            iziToast.error({
+                title: 'Error',
+                message: 'Please choose a date in the future',
+                position: 'center',
+            });
         }
     },
 };
 
+flatpickr(calendarElement, options);
 
 function convertMs(ms) {
-    // Number of milliseconds per unit of time
     const second = 1000;
     const minute = second * 60;
     const hour = minute * 60;
     const day = hour * 24;
 
-    // Remaining days
     const days = Math.floor(ms / day);
-    // Remaining hours
     const hours = Math.floor((ms % day) / hour);
-    // Remaining minutes
     const minutes = Math.floor(((ms % day) % hour) / minute);
-    // Remaining seconds
     const seconds = Math.floor((((ms % day) % hour) % minute) / second);
 
     return { days, hours, minutes, seconds };
 }
 
-const calendar = flatpickr('#datetime-picker', options);
-const inputTime = document.querySelector('#datetime-picker');
-const startBtn = document.querySelector('[data-start]');
-const showTime = document.querySelectorAll('.value');
+button.addEventListener('click', (event) => {
+    event.preventDefault();
 
-startBtn.disabled = true;
+    if (timerInterval) clearInterval(timerInterval);
+    calendarElement.disabled = true;
+    button.disabled = true;
 
-startBtn.addEventListener('click', event => {
-    const repeatTime = setInterval(() => {
-        timeInterval = userSelectedDate - new Date();
-        event.preventDefault();
-        inputTime.disabled = true;
+    timerInterval = setInterval(() => {
+        const now = new Date();
+        const diff = userSelectedDate - now;
 
-        if (timeInterval < 1) {
-            startBtn.disabled = true;
-            inputTime.disabled = false;
-            clearInterval(repeatTime);
-            return;
+        if (diff <= 0) {
+            clearInterval(timerInterval);
+            spanText.forEach(span => span.textContent = '00');
+            calendarElement.disabled = false;
+        } else {
+            const { days, hours, minutes, seconds } = convertMs(diff);
+            spanText[0].textContent = days.toString().padStart(2, '0');
+            spanText[1].textContent = hours.toString().padStart(2, '0');
+            spanText[2].textContent = minutes.toString().padStart(2, '0');
+            spanText[3].textContent = seconds.toString().padStart(2, '0');
         }
-
-        const timer = convertMs(timeInterval);
-
-        showTime[0].innerText = timer.days.toString().padStart(2, '0');
-        showTime[1].innerText = timer.hours.toString().padStart(2, '0');
-        showTime[2].innerText = timer.minutes.toString().padStart(2, '0');
-        showTime[3].innerText = timer.seconds.toString().padStart(2, '0');
     }, 1000);
 });
